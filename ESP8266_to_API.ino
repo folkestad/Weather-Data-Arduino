@@ -4,34 +4,47 @@
 
 const char* ssid     = "AUT-Sensor";
 const char* password = "AuTS3nS3";
+String apiAUTHENTICATED = "http://api.wunderground.com/api/03f7849bfa25a1b7/hourly/q/NZ/Auckland.json";
+const boolean wifi = false;
 
-//const String apiKEY = "e1b26c0d02aa985473e33f8bb695d756";
-//const String apiURL = "http://api.openweathermap.org/data/2.5/forecast?id=2193734&APPID";
-//const String apiAUTHENTICATED = String(apiURL + "=" + apiKEY);
-//const String apiAUTHENTICATED = "http://api.apixu.com/v1/forecast.json?key=82efe492322b4aef83a223228171110&q=Paris&days=1";
-const String apiAUTHENTICATED = "http://api.wunderground.com/api/03f7849bfa25a1b7/conditions/q/CA/San_Francisco.json";
- 
-void setup () {
- 
-  Serial.begin(2000000);
-  WiFi.begin(ssid, password);
- 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.println("Connecting..");
+const String items[] = {"Rain Jacket", "Sunglasses", "Warm Sweather"};
+int number = 0;
+
+void setup() {
+  Serial.begin(115200);
+  if (wifi) {
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(1000);
+      Serial.println("Connecting..");
+    }
   }
 }
 
 void loop() {
+  if (wifi) {
+    wifiEnabled();
+  } else {
+    wifiDisabled();
+  }
+  delay(10000);
+  Serial.begin(115200);
+}
+
+String forecastItem() {
+  return "Sunglasses";
+}
+
+void wifiEnabled() {
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("Connected!");
-    HTTPClient http;
-    http.begin(apiAUTHENTICATED);
-    int httpCode = http.GET();
-    Serial.println(httpCode);
-    if (httpCode > 0) {
+    Serial.println("Connected! D1 online...");
+    HTTPClient httpClient;
+    httpClient.begin(apiAUTHENTICATED);
+    int httpReturnValue = httpClient.GET();
+    Serial.println(httpReturnValue);
+    if (httpReturnValue > 0) {
       Serial.println("Getting payload...");
-      String payload = http.getString();
+      String payload = httpClient.getString();
       Serial.println(payload);
       DynamicJsonBuffer jsonBuffer;
       JsonObject& root = jsonBuffer.parseObject(payload);
@@ -39,9 +52,27 @@ void loop() {
         Serial.println("jsonBuffer.parseObject() failed.");
       }
       root.prettyPrintTo(Serial);
+    } else {
+      Serial.println("Something happened --> Could not find API.");
     }
-    http.end();
-    delay(60000);
+    httpClient.end();
   }
-  delay(100);
 }
+
+void wifiDisabled() {
+  
+  char json[] = "{\"hourly_forecast\":[{\"temp\":{\"english\":\"61\",\"metric\":\"16\"},\"condition\":\"Partly Cloudy\"},{\"temp\":{\"english\":\"59\",\"metric\":\"15\"},\"condition\":\"Partly Cloudy\"}]}";
+  
+  StaticJsonBuffer<1000> jsonBuffer;
+  JsonObject& root = jsonBuffer.parseObject(json);
+
+  if (!root.success())
+  {
+    Serial.println("parseObject() failed");
+    return;
+  }
+  for (int i = 0; i < 2; i++) {
+    root["hourly_forecast"][i]["temp"]["metric"].printTo(Serial);
+    root["hourly_forecast"][i]["condition"].printTo(Serial);
+  }
+  Serial.print("\n");  
